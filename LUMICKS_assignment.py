@@ -70,36 +70,39 @@ for idx,centroid in enumerate(initial_position):
 
 print("Processing video ...")
 
-while(video.isOpened()): ########Check the end of the video
-    FrameNumber += 1
-    print("Frame",FrameNumber )
-    #reading new frame:
+while(video.isOpened()): 
+    
+
     ret, frame = video.read()
-    if FrameNumber == 121:
-        print("Deu ruim!")
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    if ret:
+        FrameNumber += 1
+        print("Frame",FrameNumber )
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    for idx,centroid in enumerate(initial_position):
-        y_i = centroid[1]-cell_window
-        y_f = centroid[1]+cell_window
-        x_i = centroid[0]-cell_window
-        x_f = centroid[0]+cell_window
+        for idx,centroid in enumerate(initial_position):
+            y_i = centroid[1]-cell_window
+            y_f = centroid[1]+cell_window
+            x_i = centroid[0]-cell_window
+            x_f = centroid[0]+cell_window
 
-        crop_img = gray[y_i:y_f, x_i:x_f]
-        retval, bwcroped = cv2.threshold(crop_img, 30, 255, cv2.THRESH_BINARY)
-        numberOfPixels = cv2.countNonZero(bwcroped)
+            crop_img = gray[y_i:y_f, x_i:x_f]
+            retval, bwcroped = cv2.threshold(crop_img, 30, 255, cv2.THRESH_BINARY)
+            numberOfPixels = cv2.countNonZero(bwcroped)
 
-        #compare with initial value:
-        increase = 100 * float((numberOfPixels - cell_list[idx, 2])/cell_list[idx, 2])
-        if increase > 30 and cell_list[idx, 3] == 0 :
-            cell_list[idx, 3] = FrameNumber
+            # checking if the area increased:
+            increase = 100 * float((numberOfPixels - cell_list[idx, 2])/cell_list[idx, 2])
+            if increase > 20 and cell_list[idx, 3] == 0 :
+                cell_list[idx, 3] = FrameNumber
+    else:
+        break
 
+video.release()
 ######
 # Still missing the plot!
 # Compute the force!
 
 
-with open('Information.csv', 'w', newline='') as file:
+with open(path + "//" + 'Information.csv', 'w', newline='') as file:
     mywriter = csv.writer(file, delimiter=',')
     mywriter.writerows(cell_list)
     
