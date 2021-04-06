@@ -1,7 +1,7 @@
 # LUMICKS Assignment
 
 This program compute the detachement force for the cells. 
-Detachment is detected by increasing the size of the cell (more than 20%)
+Detachment is detected by increasing the area of the cell (more than 20%)
 
 Input:
 - csv file containing the initial cells location
