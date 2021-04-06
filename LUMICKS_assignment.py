@@ -166,9 +166,9 @@ nBins = 100
 n, bins, patches = ax1.hist(cell_info[:,4], nBins, density=True, histtype='step',
                            cumulative=-1, label='Empirical')
 
-ax1.set_title('Cumulative step histogram')
+ax1.set_title('Adhered cells vs Force')
 ax1.set_xlabel('Force (pN)')
-ax1.set_ylabel('Likelihood of occurrence (0-1)')
+ax1.set_ylabel('Occurrence of adhered cells (0-1)')
 ax1.grid(True)
 plt.draw()
 fig1.savefig(path + "//" + 'Results_histogram.png')
