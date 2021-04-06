@@ -1,3 +1,5 @@
+# Import libraries
+import matplotlib.pyplot as plt
 import numpy as np
 import csv
 import cv2
@@ -10,9 +12,9 @@ forcemap_name = 'force_map.png'
 
 
 # variables definition:
-frequenncy = 2  #frequency of the video = 2Hz
-cell_window = 15 #1/2 size of the cell window 
-FrameNumber = 1
+frequency = 2  #frequency of the video = 2Hz
+cellWindow = 15 #1/2 size of the cell window 
+
 
 #--------------------------------------------------------------------------------#
 # INITIALIZATION:
@@ -29,8 +31,14 @@ initial_position = np.array(initial_position)
 # Loading force map
 force_map = cv2.imread(path + '\\' + forcemap_name,0)
 
-# loading the first frame of the video (initial position):
+# loading video and initial frame:
 video = cv2.VideoCapture(path + '//' + video_name)
+videoLength = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+print( 'Total number of frames:', videoLength)
+t_max = videoLength/frequency
+print( 'Total time:', t_max)
+
+# reading first frame:
 ret, initial_frame = video.read()
 initial_frame_gray = cv2.cvtColor(initial_frame, cv2.COLOR_BGR2GRAY)
 
@@ -48,21 +56,21 @@ cv2.imshow('Initial position and state of the cells',cv2.resize(img, (1000, 1000
 cv2.waitKey(0) 
 cv2.destroyAllWindows()
 
-# cell_list = [x, y, initial_area, detachment_frame]
-cell_list = np.zeros((initial_position.shape[0],initial_position.shape[1]+2))
-cell_list[:,:-2] = initial_position
+# cell_list = [x, y, initial_area, detachment_frame, force]
+cell_info = np.zeros((initial_position.shape[0],initial_position.shape[1]+3))
+cell_info[:,:-3] = initial_position
 
 
 for idx,centroid in enumerate(initial_position):
      
-    y_i = centroid[1]-cell_window
-    y_f = centroid[1]+cell_window
-    x_i = centroid[0]-cell_window
-    x_f = centroid[0]+cell_window
+    y_i = centroid[1]-cellWindow
+    y_f = centroid[1]+cellWindow
+    x_i = centroid[0]-cellWindow
+    x_f = centroid[0]+cellWindow
     crop_img = initial_frame_gray[y_i:y_f, x_i:x_f]
     retval, bwcroped = cv2.threshold(crop_img, 30, 255, cv2.THRESH_BINARY)
     numberOfPixels_initial = cv2.countNonZero(bwcroped)
-    cell_list[idx,2] = numberOfPixels_initial
+    cell_info[idx,2] = numberOfPixels_initial
 
 
 #--------------------------------------------------------------------------------#
@@ -75,41 +83,76 @@ while(video.isOpened()):
 
     ret, frame = video.read()
     if ret:
-        FrameNumber += 1
-        print("Frame",FrameNumber )
+
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
+        frameNumber = video.get(cv2.CAP_PROP_POS_FRAMES)
+        print('Frame: ', frameNumber)
         for idx,centroid in enumerate(initial_position):
-            y_i = centroid[1]-cell_window
-            y_f = centroid[1]+cell_window
-            x_i = centroid[0]-cell_window
-            x_f = centroid[0]+cell_window
+            if cell_info[idx, 3] == 0 :
+                
+                # cropp the image around the cell:
+                # window definition:
+                x_i = centroid[0]-cellWindow
+                x_f = centroid[0]+cellWindow
+                y_i = centroid[1]-cellWindow
+                y_f = centroid[1]+cellWindow
 
-            crop_img = gray[y_i:y_f, x_i:x_f]
-            retval, bwcroped = cv2.threshold(crop_img, 30, 255, cv2.THRESH_BINARY)
-            numberOfPixels = cv2.countNonZero(bwcroped)
+                crop_img = gray[y_i:y_f, x_i:x_f]
 
-            # checking if the area increased:
-            increase = 100 * float((numberOfPixels - cell_list[idx, 2])/cell_list[idx, 2])
-            if increase > 20 and cell_list[idx, 3] == 0 :
-                cell_list[idx, 3] = FrameNumber
+                # gray to binary:
+                retval, bwcroped = cv2.threshold(crop_img, 30, 255, cv2.THRESH_BINARY)
+
+                # number of cell pixels:
+                numberOfPixels = cv2.countNonZero(bwcroped)
+
+                # comparing with original area:
+                increase = 100 * float((numberOfPixels - cell_info[idx, 2])/cell_info[idx, 2])
+
+                # if detachment is detected:
+                if increase > 20  :
+                    cell_info[idx, 3] = frameNumber #store frame number
+                    x = int(cell_info[idx, 0])
+                    y = int(cell_info[idx, 1])
+                    cell_info[idx, 4] = (frameNumber/ frequency)*force_map[x][y]/t_max
+
     else:
         break
 
 video.release()
-######
-# Still missing the plot!
-# Compute the force!
 
+#--------------------------------------------------------------------------------#
+#RESULTS
 
-with open(path + "//" + 'Information.csv', 'w', newline='') as file:
+# saving information:
+with open(path + "//" + 'Results_Information.csv', 'w', newline='') as file:
     mywriter = csv.writer(file, delimiter=',')
-    mywriter.writerows(cell_list)
-    
+    mywriter.writerows(cell_info)
 
+## plot
+fig1, ax1 = plt.subplots()
+fig2, ax2 = plt.subplots()
 
+# reversed cumulative histogram:
 
+nBins = 100
+n, bins, patches = ax1.hist(cell_info[:,4], nBins, density=True, histtype='step',
+                           cumulative=-1, label='Empirical')
 
+ax1.set_title('Cumulative step histogram')
+ax1.set_xlabel('Force (pN)')
+ax1.set_ylabel('Likelihood of occurrence (0-1)')
+ax1.grid(True)
+plt.draw()
+fig1.savefig(path + "//" + 'Results_histogram.png')
 
+# boxplot:
+ax2.set_title('Force distribution')
+ax2.set_xlabel('Dataset')
+ax2.set_ylabel('Force (pN)')
+ax2.boxplot(cell_info[:,4])
+ax2.grid(True)
+plt.draw()
+fig2.savefig(path + "//" + 'Results_boxplot.png')
 
+plt.show()
 
